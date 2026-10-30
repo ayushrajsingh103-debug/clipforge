@@ -1,0 +1,132 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClipForge — AI Video Clipper</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0c0d12;color:#f5f5f7;font-family:Arial,sans-serif}
+header{padding:20px;border-bottom:1px solid #292a35;display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:23px;font-weight:800;color:#a78bfa}
+.tag{font-size:12px;color:#aaa}
+main{max-width:850px;margin:auto;padding:22px 16px}
+h1{font-size:27px;margin-bottom:8px}
+.sub{color:#a4a4b2;line-height:1.5}
+.panel{background:#171821;border:1px solid #30313e;border-radius:16px;padding:18px;margin-top:20px}
+h2{font-size:17px;margin:0 0 15px}
+.upload{border:2px dashed #55546b;border-radius:12px;padding:28px 12px;text-align:center}
+input,button{font:inherit}
+input[type=file]{max-width:100%;margin-top:14px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{font-size:13px;color:#b9b9c8}
+input[type=text],input[type=number]{width:100%;margin-top:7px;padding:12px;background:#101119;color:white;border:1px solid #393a49;border-radius:9px}
+button{background:#8b5cf6;color:white;border:0;border-radius:10px;padding:13px 17px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.5}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.secondary{background:#30313e}
+#status{color:#c4b5fd;font-size:13px;margin-top:12px}
+video{width:100%;margin-top:15px;border-radius:10px;max-height:350px;background:#000}
+footer{text-align:center;color:#777;font-size:12px;padding:35px}
+@media(max-width:500px){.fields{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">⚡ ClipForge</div>
+  <div class="tag">AI VIDEO STUDIO</div>
+</header>
+<main>
+  <h1>Turn long videos into Shorts.</h1>
+  <p class="sub">Your creative workspace for finding highlights, making clips and adding animated captions.</p>
+
+  <section class="panel">
+    <h2>01 / Upload your video</h2>
+    <div class="upload">
+      <div style="font-size:32px">📁</div>
+      <p>Choose a video from your device</p>
+      <input id="file" type="file" accept="video/*">
+    </div>
+    <video id="preview" controls hidden></video>
+    <div id="status">No video selected yet.</div>
+  </section>
+
+  <section class="panel">
+    <h2>02 / Create a clip</h2>
+    <div class="fields">
+      <label>Start time (seconds)
+        <input id="start" type="number" min="0" value="0">
+      </label>
+      <label>End time (seconds)
+        <input id="end" type="number" min="1" value="30">
+      </label>
+    </div>
+    <div class="actions">
+      <button id="setEnd" class="secondary">Use video duration</button>
+      <button id="clip">Prepare clip</button>
+    </div>
+    <p class="sub" id="clipStatus">Select a video to begin.</p>
+  </section>
+
+  <section class="panel">
+    <h2>03 / AI captions</h2>
+    <p class="sub">Automatic transcription and animated word-by-word captions will be added in the next development stage.</p>
+    <button class="secondary" disabled>Coming soon</button>
+  </section>
+
+  <section class="panel">
+    <h2>04 / AI highlight finder</h2>
+    <p class="sub">We'll add AI-powered highlight detection after the video-processing engine is ready.</p>
+    <button class="secondary" disabled>Coming soon</button>
+  </section>
+</main>
+<footer>CLIPFORGE · YOUR VIDEO WORKSPACE</footer>
+
+<script>
+const file=document.getElementById('file');
+const preview=document.getElementById('preview');
+const status=document.getElementById('status');
+const start=document.getElementById('start');
+const end=document.getElementById('end');
+let videoURL=null;
+
+file.addEventListener('change',()=>{
+  const video=file.files[0];
+  if(!video)return;
+  if(videoURL)URL.revokeObjectURL(videoURL);
+  videoURL=URL.createObjectURL(video);
+  preview.src=videoURL;
+  preview.hidden=false;
+  status.textContent="Video loaded: "+video.name;
+  preview.onloadedmetadata=()=>{
+    end.value=Math.floor(preview.duration);
+    status.textContent="Video ready · "+Math.floor(preview.duration)+" seconds";
+  };
+});
+
+document.getElementById('setEnd').onclick=()=>{
+  if(Number.isFinite(preview.duration))
+    end.value=Math.floor(preview.duration);
+};
+
+document.getElementById('clip').onclick=()=>{
+  const a=Number(start.value),b=Number(end.value);
+  if(!file.files[0])return alert("Choose a video first.");
+  if(a<0||b<=a||b>preview.duration)
+    return alert("Please enter valid start and end times.");
+  preview.currentTime=a;
+  preview.play();
+  document.getElementById('clipStatus').textContent=
+    "Previewing your selection: "+a+"s to "+b+"s. This is a preview, not an exported clip yet.";
+  const stop=()=>{
+    if(preview.currentTime>=b){
+      preview.pause();
+      preview.removeEventListener('timeupdate',stop);
+    }
+  };
+  preview.addEventListener('timeupdate',stop);
+};
+</script>
+</body>
+</html>
