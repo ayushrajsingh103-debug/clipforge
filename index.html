@@ -84,49 +84,113 @@ footer{text-align:center;color:#777;font-size:12px;padding:35px}
 <footer>CLIPFORGE · YOUR VIDEO WORKSPACE</footer>
 
 <script>
-const file=document.getElementById('file');
-const preview=document.getElementById('preview');
-const status=document.getElementById('status');
-const start=document.getElementById('start');
-const end=document.getElementById('end');
-let videoURL=null;
 
-file.addEventListener('change',()=>{
-  const video=file.files[0];
-  if(!video)return;
-  if(videoURL)URL.revokeObjectURL(videoURL);
-  videoURL=URL.createObjectURL(video);
-  preview.src=videoURL;
-  preview.hidden=false;
-  status.textContent="Video loaded: "+video.name;
-  preview.onloadedmetadata=()=>{
-    end.value=Math.floor(preview.duration);
-    status.textContent="Video ready · "+Math.floor(preview.duration)+" seconds";
+const file = document.getElementById('file');
+const preview = document.getElementById('preview');
+const status = document.getElementById('status');
+const start = document.getElementById('start');
+const end = document.getElementById('end');
+const clipStatus = document.getElementById('clipStatus');
+
+let videoURL = null;
+
+file.addEventListener('change', () => {
+  const video = file.files[0];
+  if (!video) return;
+
+  if (videoURL) URL.revokeObjectURL(videoURL);
+
+  videoURL = URL.createObjectURL(video);
+  preview.src = videoURL;
+  preview.hidden = false;
+
+  preview.onloadedmetadata = () => {
+    end.value = Math.floor(preview.duration);
+    status.textContent =
+      `Video ready · ${Math.floor(preview.duration)} seconds`;
   };
 });
 
-document.getElementById('setEnd').onclick=()=>{
-  if(Number.isFinite(preview.duration))
-    end.value=Math.floor(preview.duration);
+document.getElementById('setEnd').onclick = () => {
+  if (Number.isFinite(preview.duration)) {
+    end.value = Math.floor(preview.duration);
+  }
 };
 
-document.getElementById('clip').onclick=()=>{
-  const a=Number(start.value),b=Number(end.value);
-  if(!file.files[0])return alert("Choose a video first.");
-  if(a<0||b<=a||b>preview.duration)
-    return alert("Please enter valid start and end times.");
-  preview.currentTime=a;
-  preview.play();
-  document.getElementById('clipStatus').textContent=
-    "Previewing your selection: "+a+"s to "+b+"s. This is a preview, not an exported clip yet.";
-  const stop=()=>{
-    if(preview.currentTime>=b){
+document.getElementById('clip').onclick = async () => {
+  const a = Number(start.value);
+  const b = Number(end.value);
+
+  if (!file.files[0]) {
+    alert('Choose a video first.');
+    return;
+  }
+
+  if (a < 0 || b <= a || b > preview.duration) {
+    alert('Enter valid start and end times.');
+    return;
+  }
+
+  if (!preview.captureStream || !window.MediaRecorder) {
+    alert('Your browser does not support video export.');
+    return;
+  }
+
+  try {
+    clipStatus.textContent = 'Preparing your clip...';
+
+    preview.pause();
+    preview.currentTime = a;
+
+    await new Promise(resolve => {
+      preview.onseeked = resolve;
+    });
+
+    const stream = preview.captureStream();
+    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
+      ? 'video/webm;codecs=vp8'
+      : 'video/webm';
+
+    const recorder = new MediaRecorder(stream, { mimeType: mime });
+    const chunks = [];
+
+    recorder.ondataavailable = event => {
+      if (event.data.size > 0) chunks.push(event.data);
+    };
+
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      link.href = url;
+      link.download = 'clipforge-clip.webm';
+      link.click();
+
+      clipStatus.textContent = 'Your clip is ready!';
       preview.pause();
-      preview.removeEventListener('timeupdate',stop);
-    }
-  };
-  preview.addEventListener('timeupdate',stop);
+    };
+
+    recorder.start();
+    await preview.play();
+
+    clipStatus.textContent = 'Recording your selected segment...';
+
+    const stopAtEnd = () => {
+      if (preview.currentTime >= b) {
+        preview.pause();
+        preview.removeEventListener('timeupdate', stopAtEnd);
+        recorder.stop();
+      }
+    };
+
+    preview.addEventListener('timeupdate', stopAtEnd);
+
+  } catch (error) {
+    clipStatus.textContent = 'Export failed: ' + error.message;
+  }
 };
+  
 </script>
 </body>
 </html>
